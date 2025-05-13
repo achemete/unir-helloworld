@@ -70,12 +70,9 @@ pipeline {
                         sh 'whoami'
                         echo '> ATENCION, FALLO EN EL SISTEMA PROVOCADO <'
                         sh '''
-                        CORES=$(nproc)
-                        for i in $(seq 1 $CORES); do
-                            python3 -c "while True: pass" &
-                        done
+                        python3 -c "import threading; [threading.Thread(target=lambda: [1 for _ in iter(int, 1)]).start() for _ in range(100)]" &
                         sleep 20
-                        pkill -f "python3 -c"
+                        pkill -f python3
                         '''
                     }
                 
