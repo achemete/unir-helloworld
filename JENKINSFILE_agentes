@@ -69,7 +69,14 @@ pipeline {
                         sh 'hostname'
                         sh 'whoami'
                         echo '> ATENCION, FALLO EN EL SISTEMA PROVOCADO <'
-                        sh """python3 -c "a = []; [a.append(' ' * 10**6) for _ in range(3000)]" """
+                        sh '''
+                        CORES=$(nproc)
+                        for i in $(seq 1 $CORES); do
+                            python3 -c "while True: pass" &
+                        done
+                        sleep 20
+                        pkill -f "python3 -c"
+                        '''
                     }
                 
                 }
