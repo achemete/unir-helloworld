@@ -65,6 +65,8 @@ pipeline {
                 }
                 stage('Exhaust'){
                     agent { label 'python' }
+                    sh 'hostname'
+                    sh 'whoami'
                     echo '> ATENCION, FALLO EN EL SISTEMA PROVOCADO <'
                     sh 'python3 -c "a = []; [a.append(' ' * 10**6) for _ in range(3000)]'
 
