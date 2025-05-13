@@ -3,7 +3,7 @@ pipeline {
 
     stages {
         stage('Get Code') {
-            agent any
+            agent { label 'code' }
             steps {
                 echo 'Pulling the code from the repo'
                 // Obtener código del repo
@@ -17,7 +17,9 @@ pipeline {
         }
 
         stage('Build') {
-            agent any
+            agent { label 'build' }
+            sh 'hostname'
+            sh 'whoami'
             steps {
                 echo "No hay que compilar nada. Esto es python..."
             }
