@@ -18,11 +18,12 @@ pipeline {
 
         stage('Build') {
             agent { label 'build' }
-            sh 'hostname'
-            sh 'whoami'
             steps {
+                sh 'hostname'
+                sh 'whoami'
                 echo "No hay que compilar nada. Esto es python..."
             }
+
         }
         
         stage('Tests'){
