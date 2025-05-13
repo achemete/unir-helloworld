@@ -63,19 +63,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Exhaust'){
-                    agent { label 'python' }
-                    steps {
-                        sh 'hostname'
-                        sh 'whoami'
-                        echo '> ATENCION, FALLO EN EL SISTEMA PROVOCADO <'
-                        sh '''
-                        python3 -c "import threading, time; [threading.Thread(target=lambda: [x**2 for x in range(10**5)]).start() for _ in range(50)]; [([' ' * 10**6] * 300) for _ in range(50)]; time.sleep(30)"
-                        pkill -f python3
-                        '''
-                    }
                 
-                }
             }
         }
         stage('Results'){
