@@ -1,0 +1,75 @@
+pipeline {
+    agent none 
+
+    stages {
+        stage('Get Code') {
+            agent any
+            steps {
+                echo 'Pulling the code from the repo'
+                // Obtener código del repo
+                git 'https://github.com/achemete/unir-helloworld.git'
+                sh 'ls -la'
+                echo "${env.WORKSPACE}"
+                sh 'hostname'
+                sh 'whoami'
+                stash name: 'codigo', includes: '**/*'
+            }
+        }
+
+        stage('Build') {
+            agent any
+            steps {
+                echo "No hay que compilar nada. Esto es python..."
+            }
+        }
+        
+        stage('Tests'){
+            parallel {
+                
+                stage('Unit') {
+                    agent { label 'unit' }
+                    steps {
+                        unstash name: 'codigo'
+                        sh '''
+                        export PYTHONPATH=$WORKSPACE
+                        pytest --junitxml=result-unit.xml test/unit
+                        '''
+                        sh 'hostname'
+                        sh 'whoami'
+                    }
+                }
+        
+                stage('Rest') {
+                    agent { label 'rest' }
+                    steps {
+                        unstash name: 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                            sh '''
+                            export FLASK_APP=app/api.py
+                            export FLASK_ENV=development
+                            flask run &
+            
+                            java -jar /home/hector/unir-helloworld/test/wiremock/wiremock-standalone-3.13.0.jar \
+                                --port 9000 \
+                                --root-dir /home/hector/unir-helloworld/test/wiremock &
+            
+                            export PYTHONPATH=$WORKSPACE
+                            '''
+                            sh 'hostname'
+                            sh 'whoami'
+                        }
+                    }
+                }
+            }
+        }
+        stage('Results'){
+            agent any
+            steps {
+                sh 'ls -la'
+                sh 'pwd'
+                sh 'sleep 5'
+                junit '**/result-unit.xml'
+            }
+        }
+    }
+}
