@@ -14,6 +14,7 @@ pipeline {
         }
 
         stage('Build') {
+            agent any
             steps {
                 echo "No hay que compilar nada. Esto es python..."
             }
@@ -27,8 +28,11 @@ pipeline {
                         unstash name: 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh '''
-                            hostname
-                            which pytest
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+                            
                             export PYTHONPATH=$WORKSPACE
                             pytest --junitxml=result-unit.xml test/unit
                             '''
@@ -44,10 +48,10 @@ pipeline {
                         unstash name: 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh '''
-                            hostname
-                            whoami
-                            which coverage
-                            ls -l $(which coverage)
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
 
                             export PYTHONPATH=$WORKSPACE
                             export PATH=/usr/local/bin:$PATH
@@ -70,8 +74,11 @@ pipeline {
                         unstash name: 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh '''
-                            hostname
-                            whoami
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
                             export PYTHONPATH=$WORKSPACE
                             flake8 --exit-zero --format=pylint app >flake8.out
                             '''
@@ -89,8 +96,11 @@ pipeline {
                     steps {
                         unstash name: 'codigo'
                         sh '''
-                            hostname
-                            whoami
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
                             export PYTHONPATH=$WORKSPACE
                             bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: {severity}: {test_id}: {msg}" 
                             '''
@@ -107,8 +117,11 @@ pipeline {
                         unstash name: 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh '''
-                                hostname
-                                whoami
+                                set +x
+                                echo "Username: $(whoami)"
+                                echo "Hostname (agent): $(hostname)"
+                                echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
                                 export PYTHONPATH=$WORKSPACE
                                 
                                 export FLASK_APP=app/api.py
@@ -120,13 +133,10 @@ pipeline {
                                 
                                 kill $FLASK_PID
                                 '''
-                                //stash name: 'perf-res', includes: 'flask.jtl'
                         }
                             perfReport sourceDataFiles: 'flask.jtl'
                     }
                 }
-                
-                //report
                 
             }
         }
