@@ -6,7 +6,7 @@ pipeline {
         stage('Get Code') {
             steps {
                 echo 'Pulling the code from the repo'
-                git branch: 'master', url: 'https://github.com/achemete/unir-helloworld.git'
+                git branch: 'feature_fix_coverage', url: 'https://github.com/achemete/unir-helloworld.git'
                 sh 'ls -la'
                 echo "${env.WORKSPACE}"
                 stash name: 'codigo', includes: '**/*'
