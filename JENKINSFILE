@@ -1,12 +1,12 @@
 pipeline {
     agent any
+    options { skipDefaultCheckout() }
 
     stages {
         stage('Get Code') {
             steps {
                 echo 'Pulling the code from the repo'
-                // Obtener código del repo
-                git 'https://github.com/achemete/unir-helloworld.git'
+                git branch: 'master', url: 'https://github.com/achemete/unir-helloworld.git'
                 sh 'ls -la'
                 echo "${env.WORKSPACE}"
                 stash name: 'codigo', includes: '**/*'
@@ -14,69 +14,130 @@ pipeline {
         }
 
         stage('Build') {
+            agent any
             steps {
                 echo "No hay que compilar nada. Esto es python..."
             }
         }
-        
-        stage('Tests'){
+
+        stage('Tests') {
             parallel {
-                
                 stage('Unit') {
                     agent { label 'unit' }
                     steps {
                         unstash name: 'codigo'
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                        sh '''
-                        hostname
-                        export PYTHONPATH=$WORKSPACE
-                        pytest --junitxml=result-unit.xml test/unit
-                        '''
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+                            
+                            export PYTHONPATH=$WORKSPACE
+                            pytest --junitxml=result-unit.xml test/unit
+                            '''
+                            junit '**/result-*.xml'
+                           // stash name: 'unit-res', includes: 'result-unit.xml'
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    agent { label 'coverage' }
+                    steps {
+                        unstash name: 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
+                            export PYTHONPATH=$WORKSPACE
+                            export PATH=/usr/local/bin:$PATH
+                            coverage run --branch --source=app --omit=app/__init__.py,app/api.py -m pytest test/unit
+                            coverage xml -o cov.xml
+                            '''
+                        }
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            cobertura coberturaReportFile: 'cov.xml',
+                                conditionalCoverageTargets: '100,0,80',
+                                lineCoverageTargets: '100,0,90'
+                        }
+                        stash name: 'cov-res', includes: 'cov.xml'
+                    }
+                }
+
+                stage('static') {
+                    agent { label 'static' }
+                    steps {
+                        unstash name: 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
+                            export PYTHONPATH=$WORKSPACE
+                            flake8 --exit-zero --format=pylint app >flake8.out
+                            '''
+                            recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')],
+                                qualityGates: [
+                                    [threshold: 10, type: 'TOTAL', unstable: true],
+                                    [threshold: 11, type: 'TOTAL', unstable: false]
+                                ]
                         }
                     }
                 }
                 
-                stage('Rest') {
-                    agent { label 'rest' }
+                stage('security') {
+                    agent { label 'security' }
                     steps {
                         unstash name: 'codigo'
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                            sh '''
-                            hostname
-                            
+                        sh '''
+                            set +x
+                            echo "Username: $(whoami)"
+                            echo "Hostname (agent): $(hostname)"
+                            echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
                             export PYTHONPATH=$WORKSPACE
-                            export FLASK_APP=app/api.py
-                            export FLASK_ENV=development
-                            flask run --host=0.0.0.0 --port=5000 &
-                            FLASK_PID=$!
-                            
-                            java -jar /home/hector/unir-helloworld/test/wiremock/wiremock-standalone-3.13.0.jar \
-                                --port 9090 \
-                                --bind-address 0.0.0.0 \
-                                --root-dir /home/hector/unir-helloworld/test/wiremock &
-                                
-                            WIREMOCK_PID=$!
-                            
-                            sleep 20
-                            
-                            pytest --junitxml=result-rest.xml test/rest
-                            
-                            kill $FLASK_PID
-                            kill $WIREMOCK_PID
-                            
+                            bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: {severity}: {test_id}: {msg}" 
                             '''
-                        }
+                            recordIssues tools: [pyLint(name: 'bandit', pattern: 'bandit.out')],\
+                                qualityGates: [
+                                    [threshold: 1, type: 'TOTAL', unstable: true],
+                                    [threshold: 2, type: 'TOTAL',unstable: false]]
                     }
                 }
-            }
-        }
-        stage('Results'){
-            steps {
-                sh 'hostname'
-                sh 'ls -la'
-                sh 'pwd'
-                sh 'sleep 5'
-                junit '**/result-*.xml'
+                
+                stage('performance'){
+                    agent { label 'performance' }
+                    steps {
+                        unstash name: 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                                set +x
+                                echo "Username: $(whoami)"
+                                echo "Hostname (agent): $(hostname)"
+                                echo "Agent IP:\\n$(ip -o -4 addr show up | awk '{print \$4}' | cut -d/ -f1 | grep -v '^127\\.')"
+
+                                export PYTHONPATH=$WORKSPACE
+                                
+                                export FLASK_APP=app/api.py
+                                export FLASK_ENV=development
+                                flask run --host=0.0.0.0 --port=5000 &
+                                FLASK_PID=$!
+                                
+                                jmeter -n -t test/jmeter/flask.jmx -f -l "flask.jtl"
+                                
+                                kill $FLASK_PID
+                                '''
+                        }
+                            perfReport sourceDataFiles: 'flask.jtl'
+                    }
+                }
+                
             }
         }
     }
